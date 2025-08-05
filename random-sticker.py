@@ -39,6 +39,23 @@ with conn:
         reply_chance REAL DEFAULT 0.05
     )
     """)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        user_id INTEGER PRIMARY KEY,
+        first_name TEXT,
+        last_name TEXT,
+        username TEXT,
+        last_active TIMESTAMP,
+        sticker_calls INTEGER DEFAULT 0,
+        media_calls INTEGER DEFAULT 0
+    )
+    """)
+    conn.commit()
+
+    # Добавляем индексы для ускорения запросов
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_packs_chat_id ON packs(chat_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_users_last_active ON users(last_active)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
     conn.commit()
 
     # Проверка колонки reply_chance
@@ -121,9 +138,43 @@ def send_random_sticker(chat_id, reply_to_message_id=None):
         return False
 
 
+# --- Функция сохранения или обновления юзера ---
+def update_user(user, is_media=False):
+    with conn:
+        cur = conn.cursor()
+        cur.execute("""
+        INSERT INTO users (user_id, first_name, last_name, username, last_active, sticker_calls, media_calls)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            first_name=excluded.first_name,
+            last_name=excluded.last_name,
+            username=excluded.username,
+            last_active=excluded.last_active,
+            sticker_calls=users.sticker_calls + excluded.sticker_calls,
+            media_calls=users.media_calls + excluded.media_calls
+        """, (
+            user.id,
+            user.first_name,
+            user.last_name,
+            user.username,
+            datetime.datetime.now(),
+            0 if is_media else 1,
+            1 if is_media else 0
+        ))
+        conn.commit()
+
+
+def find_user_by_username(username):
+    with conn:
+        cur = conn.cursor()
+        cur.execute("SELECT user_id, first_name, last_name, username, last_active, sticker_calls, media_calls FROM users WHERE username = ?", (username,))
+        return cur.fetchone()
+
+
 @bot.message_handler(content_types=["sticker"])
 def handle_sticker(message):
     chat_id = message.chat.id
+    update_user(message.from_user, is_media=False)
     pack_name = message.sticker.set_name
 
     if not pack_name:
@@ -331,6 +382,29 @@ def help_command(message):
     log(f"chat_id={message.chat.id}: Запрошена помощь (/help)")
 
 
+# --- Команда для топа пользователей ---
+@bot.message_handler(commands=["top_users"])
+def top_users(message):
+    with conn:
+        cur = conn.cursor()
+        cur.execute("""
+        SELECT username, first_name, sticker_calls, media_calls 
+        FROM users ORDER BY (sticker_calls + media_calls) DESC LIMIT 10
+        """)
+        rows = cur.fetchall()
+
+    if not rows:
+        bot.reply_to(message, "Пока нет данных по пользователям.")
+        return
+
+    text = "🏆 Топ пользователей:\n"
+    for i, (username, first_name, stickers, media) in enumerate(rows, 1):
+        name = f"@{username}" if username else first_name
+        text += f"{i}. {name} — 🎯 {stickers} стикеров, 📷 {media} медиа\n"
+
+    bot.reply_to(message, text)
+
+
 @bot.message_handler(content_types=["text", "photo", "video", "animation", "video_note"])
 def random_reply(message):
     chat_id = message.chat.id
@@ -347,6 +421,7 @@ def random_reply(message):
 
     # === Логика реакции ===
     if message.content_type == "text":
+        update_user(message.from_user, is_media=False)  # считаем текст за "sticker_call"
         chance = get_reply_chance(chat_id)
         roll = random.random()
         if roll < chance:
@@ -357,6 +432,7 @@ def random_reply(message):
     else:
         # для фото/видео/гифок/кружочков → 100%
         log(f"chat_id={chat_id}: Медиа сообщение ({message.content_type}), реагируем 100%")
+        update_user(message.from_user, is_media=True)  # фото/видео считаем как "media_call"
         send_random_sticker(chat_id, reply_to_message_id=message.message_id)
         
 
