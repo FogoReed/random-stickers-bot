@@ -30,7 +30,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS chat_settings (
             chat_id INTEGER PRIMARY KEY,
             pack_limit INTEGER DEFAULT 50,
-            reply_chance REAL DEFAULT 0.05
+            reply_chance REAL DEFAULT 0.05,
+            language TEXT DEFAULT 'en'
         )
         """)
         # Create users table
@@ -42,8 +43,7 @@ def init_db():
             username TEXT,
             last_active TIMESTAMP,
             sticker_calls INTEGER DEFAULT 0,
-            media_calls INTEGER DEFAULT 0,
-            language TEXT DEFAULT 'en'
+            media_calls INTEGER DEFAULT 0
         )
         """)
         conn.commit()
@@ -63,12 +63,12 @@ def init_db():
             log("Column reply_chance added to chat_settings")
 
         # Check and add language column if missing
-        cur.execute("PRAGMA table_info(users)")
+        cur.execute("PRAGMA table_info(chat_settings)")
         columns = [col[1] for col in cur.fetchall()]
         if "language" not in columns:
-            cur.execute("ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'en'")
+            cur.execute("ALTER TABLE chat_settings ADD COLUMN language TEXT DEFAULT 'en'")
             conn.commit()
-            log("Column language added to users")
+            log("Column language added to chat_settings")
 
 def get_pack_limit(chat_id):
     """Get the pack limit for a chat."""
@@ -78,8 +78,8 @@ def get_pack_limit(chat_id):
         row = cur.fetchone()
         if row:
             return row[0]
-        cur.execute("INSERT OR IGNORE INTO chat_settings (chat_id, pack_limit, reply_chance) VALUES (?, ?, ?)",
-                    (chat_id, 50, 0.05))
+        cur.execute("INSERT OR IGNORE INTO chat_settings (chat_id, pack_limit, reply_chance, language) VALUES (?, ?, ?, ?)",
+                    (chat_id, 50, 0.05, 'en'))
         return 50
 
 def get_reply_chance(chat_id):
@@ -90,17 +90,39 @@ def get_reply_chance(chat_id):
         row = cur.fetchone()
         if row:
             return row[0]
-        cur.execute("INSERT OR IGNORE INTO chat_settings (chat_id, pack_limit, reply_chance) VALUES (?, ?, ?)",
-                    (chat_id, 50, 0.05))
+        cur.execute("INSERT OR IGNORE INTO chat_settings (chat_id, pack_limit, reply_chance, language) VALUES (?, ?, ?, ?)",
+                    (chat_id, 50, 0.05, 'en'))
         return 0.05
 
 def set_reply_chance(chat_id, chance):
     """Set the reply chance for a chat."""
     with conn:
         cur = conn.cursor()
-        cur.execute("INSERT OR REPLACE INTO chat_settings (chat_id, pack_limit, reply_chance) "
-                    "VALUES (?, COALESCE((SELECT pack_limit FROM chat_settings WHERE chat_id=?), 50), ?)",
-                    (chat_id, chat_id, chance))
+        cur.execute("INSERT OR REPLACE INTO chat_settings (chat_id, pack_limit, reply_chance, language) "
+                    "VALUES (?, COALESCE((SELECT pack_limit FROM chat_settings WHERE chat_id=?), 50), ?, "
+                    "COALESCE((SELECT language FROM chat_settings WHERE chat_id=?), 'en'))",
+                    (chat_id, chat_id, chance, chat_id))
+
+def get_chat_language(chat_id):
+    """Get the language for a chat."""
+    with conn:
+        cur = conn.cursor()
+        cur.execute("SELECT language FROM chat_settings WHERE chat_id=?", (chat_id,))
+        row = cur.fetchone()
+        if row:
+            return row[0]
+        cur.execute("INSERT OR IGNORE INTO chat_settings (chat_id, pack_limit, reply_chance, language) VALUES (?, ?, ?, ?)",
+                    (chat_id, 50, 0.05, 'en'))
+        return 'en'
+
+def set_chat_language(chat_id, lang):
+    """Set the language for a chat."""
+    with conn:
+        cur = conn.cursor()
+        cur.execute("INSERT OR REPLACE INTO chat_settings (chat_id, pack_limit, reply_chance, language) "
+                    "VALUES (?, COALESCE((SELECT pack_limit FROM chat_settings WHERE chat_id=?), 50), "
+                    "COALESCE((SELECT reply_chance FROM chat_settings WHERE chat_id=?), 0.05), ?)",
+                    (chat_id, chat_id, chat_id, lang))
 
 def count_packs(chat_id):
     """Count the number of allowed packs in a chat."""
@@ -146,8 +168,8 @@ def update_user(user, is_media=False):
     with conn:
         cur = conn.cursor()
         cur.execute("""
-        INSERT INTO users (user_id, first_name, last_name, username, last_active, sticker_calls, media_calls, language)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (user_id, first_name, last_name, username, last_active, sticker_calls, media_calls)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id) DO UPDATE SET
             first_name=excluded.first_name,
             last_name=excluded.last_name,
@@ -162,7 +184,6 @@ def update_user(user, is_media=False):
             user.username,
             datetime.datetime.now(),
             0 if is_media else 1,
-            1 if is_media else 0,
-            "en"  # Default language
+            1 if is_media else 0
         ))
         conn.commit()

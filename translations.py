@@ -1,4 +1,4 @@
-from db_operations import conn
+from db_operations import conn, get_chat_language, set_chat_language
 
 # Translation dictionary for Russian, Ukrainian, and English
 TRANSLATIONS = {
@@ -27,27 +27,28 @@ TRANSLATIONS = {
             "/top_users — вывести рейтинг пользователей с наибольшим количеством отправленных стикеров и реакций на медиа\n"
             "/ban_pack <название_пака> — добавить пак в чёрный список (только для админов)\n"
             "/unban_pack <название_пака> — убрать пак из чёрного списка (только для админов)\n"
-            "/list_packs — список всех паков и их статус (только для админов)\n"
+            "/list_packs — список всех паков и их статус\n"
             "/clear_packs — очистить базу паков чата (только для админов)\n"
             "/set_pack_limit <число> — установить лимит паков (только для админов)\n"
             "/get_pack_limit — узнать текущий лимит паков\n"
-            "/set_reply_chance <число> — установить шанс ответа стикером (%)\n"
+            "/set_reply_chance <число> — установить шанс ответа стикером (%) (только для админов)\n"
             "/get_reply_chance — узнать текущий шанс ответа стикером\n"
-            "/set_language — выбрать язык бота через кнопки\n"
+            "/set_language — выбрать язык чата через кнопки\n"
             "/help — показать это сообщение"
         ),
         "no_users": "Пока нет данных по пользователям.",
         "top_users": "🏆 Топ пользователей:",
-        "set_language_usage": "Используйте кнопки для выбора языка.",
-        "language_changed": "Язык изменён.",
-        "select_language": "Выберите язык:",
+        "set_language_usage": "Используйте кнопки для выбора языка чата.",
+        "language_changed": "Язык чата изменён.",
+        "select_language": "Выберите язык чата:",
         "lang_ru": "Русский",
         "lang_uk": "Українська",
         "lang_en": "English",
-        "invalid_callback": "Ошибка: неверный запрос или вы не можете изменить язык другого пользователя.",
+        "invalid_callback": "Ошибка: неверный запрос или вы не можете изменить язык чата.",
         "unsupported_language": "Ошибка: неподдерживаемый язык.",
         "stickers_label": "стикеры",
-        "media_label": "медиа"
+        "media_label": "медиа",
+        "admin_only": "Только администраторы могут выполнять эту команду."
     },
     "uk": {
         "no_packs": "У цьому чаті ще немає збережених стікерпаків.",
@@ -74,27 +75,28 @@ TRANSLATIONS = {
             "/top_users — вивести рейтинг користувачів з найбільшою кількістю надісланих стікерів та реакцій на медіа\n"
             "/ban_pack <назва_паку> — додати пак до чорного списку (тільки для адмінів)\n"
             "/unban_pack <назва_паку> — видалити пак з чорного списку (тільки для адмінів)\n"
-            "/list_packs — список усіх паків та їх статус (тільки для адмінів)\n"
+            "/list_packs — список усіх паків та їх статус\n"
             "/clear_packs — очистити базу паків чату (тільки для адмінів)\n"
             "/set_pack_limit <число> — встановити ліміт паків (тільки для адмінів)\n"
             "/get_pack_limit — дізнатися поточний ліміт паків\n"
-            "/set_reply_chance <число> — встановити шанс відповіді стікером (%)\n"
+            "/set_reply_chance <число> — встановити шанс відповіді стікером (%) (тільки для адмінів)\n"
             "/get_reply_chance — дізнатися поточний шанс відповіді стікером\n"
-            "/set_language — обрати мову бота через кнопки\n"
+            "/set_language — обрати мову чату через кнопки\n"
             "/help — показати це повідомлення"
         ),
         "no_users": "Поки немає даних про користувачів.",
         "top_users": "🏆 Топ користувачів:",
-        "set_language_usage": "Використовуйте кнопки для вибору мови.",
-        "language_changed": "Мову змінено.",
-        "select_language": "Оберіть мову:",
+        "set_language_usage": "Використовуйте кнопки для вибору мови чату.",
+        "language_changed": "Мову чату змінено.",
+        "select_language": "Оберіть мову чату:",
         "lang_ru": "Русский",
         "lang_uk": "Українська",
         "lang_en": "English",
-        "invalid_callback": "Помилка: невірний запит або ви не можете змінити мову іншого користувача.",
+        "invalid_callback": "Помилка: невірний запит або ви не можете змінити мову чату.",
         "unsupported_language": "Помилка: непідтримувана мова.",
         "stickers_label": "стікері",
-        "media_label": "медіа"
+        "media_label": "медіа",
+        "admin_only": "Тільки адміністратори можуть виконувати цю команду."
     },
     "en": {
         "no_packs": "No sticker packs saved in this chat yet.",
@@ -121,27 +123,28 @@ TRANSLATIONS = {
             "/top_users — display ranking of users with the most sent stickers and media reactions\n"
             "/ban_pack <pack_name> — add a pack to the blacklist (admin only)\n"
             "/unban_pack <pack_name> — remove a pack from the blacklist (admin only)\n"
-            "/list_packs — list all packs and their status (admin only)\n"
+            "/list_packs — list all packs and their status\n"
             "/clear_packs — clear the pack database for this chat (admin only)\n"
             "/set_pack_limit <number> — set the pack limit (admin only)\n"
             "/get_pack_limit — check the current pack limit\n"
-            "/set_reply_chance <number> — set the sticker reply chance (%)\n"
+            "/set_reply_chance <number> — set the sticker reply chance (%) (admin only)\n"
             "/get_reply_chance — check the current sticker reply chance\n"
-            "/set_language — select the bot's language via buttons\n"
+            "/set_language — select the chat's language via buttons\n"
             "/help — show this message"
         ),
         "no_users": "No user data available yet.",
         "top_users": "🏆 Top users:",
-        "set_language_usage": "Use the buttons to select a language.",
-        "language_changed": "Language changed.",
-        "select_language": "Select a language:",
+        "set_language_usage": "Use the buttons to select the chat's language.",
+        "language_changed": "Chat language changed.",
+        "select_language": "Select the chat's language:",
         "lang_ru": "Русский",
         "lang_uk": "Українська",
         "lang_en": "English",
-        "invalid_callback": "Error: invalid request or you cannot change another user's language.",
+        "invalid_callback": "Error: invalid request or you cannot change the chat's language.",
         "unsupported_language": "Error: unsupported language.",
         "stickers_label": "stickers",
-        "media_label": "media"
+        "media_label": "media",
+        "admin_only": "Only administrators can execute this command."
     }
 }
 
@@ -150,16 +153,9 @@ def get_translation(lang, key):
     return TRANSLATIONS.get(lang, TRANSLATIONS["en"]).get(key, TRANSLATIONS["en"][key])
 
 def set_user_language(user_id, lang):
-    """Set the language for a user."""
-    with conn:
-        cur = conn.cursor()
-        cur.execute("UPDATE users SET language=? WHERE user_id=?", (lang, user_id))
-        conn.commit()
+    """Deprecated: Use set_chat_language instead."""
+    pass
 
-def get_user_language(user_id):
-    """Get the language for a user."""
-    with conn:
-        cur = conn.cursor()
-        cur.execute("SELECT language FROM users WHERE user_id=?", (user_id,))
-        row = cur.fetchone()
-        return row[0] if row else "en"
+def get_user_language(user_id, chat_id):
+    """Get the language for a chat, ignoring user_id."""
+    return get_chat_language(chat_id)
